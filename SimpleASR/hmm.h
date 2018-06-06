@@ -1,6 +1,7 @@
 #define N_STATE		3
 #define N_PDF		10
 #define N_DIMENSION	39
+#define N_WORD		13
 
 typedef struct {
   float weight;
@@ -17,6 +18,13 @@ typedef struct {
   float tp[N_STATE+2][N_STATE+2];
   stateType state[N_STATE];
 } hmmType;
+
+typedef struct
+{
+	char name[7];
+	int tp_dim;
+	float* tp;
+} wordHmmType;
 
 hmmType phones[] = {
   { "f", // HMM
