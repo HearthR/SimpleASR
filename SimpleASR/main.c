@@ -419,58 +419,28 @@ float gau(float* vec, stateType* state)
 }
 
 
-int* viterbi()
+int* viterbi(matrixType* input_vector)
 {
-	FILE *input_fp;
-	errno_t err = fopen_s(&input_fp, "2477956.txt", "rt");
-	if (err == 0)
-	{
-		printf("File open successed!\n");
-	}
-	else
-	{
-		printf("File open failed!\n");
-		return;
-	}
-
-	int i = 0;
-
-	matrixType input_vector;
-
-	fscanf(input_fp, "%d %d\n", &input_vector.row, &input_vector.col);
-
-	input_vector.m = (float*)calloc(1, sizeof(float) * input_vector.row * input_vector.col);
-
-	while (!feof(input_fp))
-	{
-		for (int j = 0; j < input_vector.col; j++)
-		{
-			fscanf(input_fp, "%f ", &input_vector.m[i * input_vector.col + j]);
-		}
-		fscanf(input_fp, "\n");
-		i++;
-	}
-
 	matrixType mat;
-	mat.row = input_vector.row;
+	mat.row = input_vector->row;
 	mat.col = univ_hmm.tp_dim;
 	mat.m = (float*)calloc(1, sizeof(float) * mat.row * mat.col);
 	matrixType mat_p;
-	mat_p.row = input_vector.row;
+	mat_p.row = input_vector->row;
 	mat_p.col = univ_hmm.tp_dim;
 	mat_p.m = (float*)calloc(1, sizeof(float) * mat_p.row * mat_p.col);
 
-	int* q = (int*)calloc(1, sizeof(int) * input_vector.row);
+	int* q = (int*)calloc(1, sizeof(int) * input_vector->row);
 
 	for (int st = 0; st < N_WORD; st++)
 	{
 		if (strcmp(univ_hmm.word_list[st].name, "zero"))
 		{
-			mat.m[univ_hmm.word_list[st].in_index] = log(0.5f) + log(unigram.e[11].prob) + gau(&input_vector.m[0], &phones[word_hmm[st].phones_index[0]].state[0]);
+			mat.m[univ_hmm.word_list[st].in_index] = log(0.5f) + log(unigram.e[11].prob) + gau(&input_vector->m[0], &phones[word_hmm[st].phones_index[0]].state[0]);
 		}
 		else
 		{
-			mat.m[univ_hmm.word_list[st].in_index] = log(unigram.e[st].prob) + gau(&input_vector.m[0], &phones[word_hmm[st].phones_index[0]].state[0]);
+			mat.m[univ_hmm.word_list[st].in_index] = log(unigram.e[st].prob) + gau(&input_vector->m[0], &phones[word_hmm[st].phones_index[0]].state[0]);
 		}
 	}
 
@@ -481,13 +451,13 @@ int* viterbi()
 	int inner_i = 0;
 	float gau_tmp = 0.0f;
 
-	for (int k = 1; k < input_vector.row; k++)
+	for (int k = 1; k < input_vector->row; k++)
 	{
-		for (int j = 1; j < univ_hmm.tp_dim; j++)
+		for (int j = 0; j < univ_hmm.tp_dim; j++)
 		{
 			inner_i = j - univ_hmm.word_list[state_i].in_index;
-			gau_tmp = gau(&input_vector.m[input_vector.col * k], &phones[univ_hmm.word_list[state_i].state_index[inner_i][0]].state[univ_hmm.word_list[state_i].state_index[inner_i][1]]);
-			for (int l = 1; l < univ_hmm.tp_dim; l++)
+			gau_tmp = gau(&input_vector->m[input_vector->col * k], &phones[univ_hmm.word_list[state_i].state_index[inner_i][0]].state[univ_hmm.word_list[state_i].state_index[inner_i][1]]);
+			for (int l = 0; l < univ_hmm.tp_dim; l++)
 			{
 				if (univ_hmm.tp[univ_hmm.tp_dim * l + j] == 0)
 				{
@@ -517,33 +487,193 @@ int* viterbi()
 	max_v = -100000.0f;
 	for (int j = 0; j < mat.col; j++)
 	{
-		if (max_v < mat.m[mat.col * (input_vector.row - 1) + j])
+		if (max_v < mat.m[mat.col * (input_vector->row - 1) + j])
 		{
 			tmp_i = j;
 		}
 	}
-	q[input_vector.row - 1] = tmp_i;
+	q[input_vector->row - 1] = tmp_i;
 
 
-	for (int k = input_vector.row - 2; k > 0; k--)
+	for (int k = input_vector->row - 2; k > 0; k--)
 	{
 		q[k] = mat_p.m[mat_p.col * k + q[k + 1]];
 	}
 
 
-	for (int j = 1; j < input_vector.row; j++)
+	for (int j = 1; j < input_vector->row; j++)
 	{
 		printf("%s ", phones[univ_hmm.tp_phones[q[j]]].name);
 	}
 	printf("\n\n");
 
-	free(input_vector.m);
 	free(mat.m);
 	free(mat_p.m);
-	fclose(input_fp);
+
+	return q;
 }
 
+void beginSR()
+{
+	FILE *input_list;
+	char buffer[25];
+	char* token;
+	errno_t err = fopen_s(&input_list, "reference.txt", "rt");
+	if (err == 0)
+	{
+		printf("File open successed!(input_list)\n");
+	}
+	else
+	{
+		printf("File open failed!\n");
+		return;
+	}
 
+	FILE *output_fp;
+	errno_t err_debug = fopen_s(&output_fp, "recognized.txt", "wt");
+	if (err_debug == 0)
+	{
+		printf("File open successed!(output_fp)\n");
+	}
+	else
+	{
+		printf("File open failed!\n");
+		return;
+	}
+	fprintf(output_fp, "#!MLF!#\n");
+
+	char file_name[25];
+	int ind = 0;
+
+	fgets(buffer, sizeof(buffer), input_list);
+	while (fgets(buffer, sizeof(buffer), input_list) != NULL)
+	{
+		if (buffer[0] == '\"')
+		{
+			ind++;
+			token = strtok(buffer, ".");
+			token = strtok(token, "\"");
+			strcpy(file_name, token);
+
+			char fext[] = ".txt";
+			char file_name_cat[25];
+			strcpy(file_name_cat, file_name);
+			strcat(file_name_cat, fext);
+			FILE *input_fp;
+			errno_t err = fopen_s(&input_fp, file_name_cat, "rt");
+			if (err == 0)
+			{
+				printf("File open successed!(input_fp): %d\n", ind);
+			}
+			else
+			{
+				printf("File open failed!\n");
+				return;
+			}
+
+			int i = 0;
+
+			matrixType input_vector;
+
+			fscanf(input_fp, "%d %d\n", &input_vector.row, &input_vector.col);
+
+			input_vector.m = (float*)calloc(1, sizeof(float) * input_vector.row * input_vector.col);
+
+			while (!feof(input_fp))
+			{
+				for (int j = 0; j < input_vector.col; j++)
+				{
+					fscanf(input_fp, "%f ", &input_vector.m[i * input_vector.col + j]);
+				}
+				fscanf(input_fp, "\n");
+				i++;
+			}
+
+			// viterbi
+			int* q = viterbi(&input_vector);
+
+			int* seq = (int*)calloc(1, sizeof(int) * input_vector.row);
+
+			int tmp_i = 1;
+			seq[0] = q[0];
+			for (int j = 1; j < input_vector.row; j++)
+			{
+				if (seq[tmp_i - 1] != q[j])
+				{
+					seq[tmp_i] = q[j];
+					tmp_i++;
+				}
+			}
+			seq[tmp_i] = -1;
+
+			char word_trans[12][7];
+
+			tmp_i = 0;
+			int word_flag = 1;
+			int word_trans_i = 0;
+			while (seq[tmp_i] >= 0)
+			{
+				if (seq[tmp_i] >= univ_hmm.word_list[0].in_index && seq[tmp_i] <= univ_hmm.word_list[0].out_index)
+				{
+					tmp_i++;
+					continue;
+				}
+				for (int j = 0; j < N_WORD; j++)
+				{
+					word_flag = 1;
+					for (int k = 0; k < word_hmm[j].tp_dim - 2; k++)
+					{
+						if (k == word_hmm[j].tp_dim - 3)
+						{
+							if (strcmp(phones[univ_hmm.tp_phones[seq[tmp_i + k]]].name, "sp") == 0)
+							{
+								tmp_i++;
+							}
+							break;
+						}
+
+						if (seq[tmp_i + k] != univ_hmm.word_list[j].in_index + k)
+						{
+							word_flag = 0;
+							break;
+						}
+					}
+
+					if (word_flag == 0) continue;
+					else
+					{
+						strcpy(word_trans[word_trans_i], univ_hmm.word_list[j].name);
+						word_trans_i++;
+						tmp_i += word_hmm[j].tp_dim - 3;
+						break;
+					}
+				}
+
+				if (word_flag == 0)
+				{
+					tmp_i++;
+				}
+			}
+
+			strcpy(file_name_cat, file_name);
+			strcat(file_name_cat, ".rec");
+			fprintf(output_fp, "\"%s\"\n", file_name_cat);
+
+			for (int j = 0; j < word_trans_i; j++)
+			{
+				if (word_trans_i > 7 && j == word_trans_i - 1 && strcmp(word_trans[j], "zero") == 0) break;
+				fprintf(output_fp, "%s\n", word_trans[j]);
+			}
+			fprintf(output_fp, ".\n");
+
+			free(input_vector.m);
+			fclose(input_fp);
+		}
+	}
+
+	fclose(output_fp);
+	fclose(input_list);
+}
 
 
 int main()
@@ -551,7 +681,7 @@ int main()
 	buildWordHMM();
 	buildUniversalHMM();
 	getUnigram();
-	viterbi();
+	beginSR();
 
 
 	return 0;
