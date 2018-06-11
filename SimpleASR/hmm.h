@@ -23,8 +23,47 @@ typedef struct
 {
 	char name[7];
 	int tp_dim;
+	int phones_num;
+	int phones_index[7];
 	float* tp;
+	int out_idx1;
+	int out_idx2;
 } wordHmmType;
+
+typedef struct
+{
+	char name[7];
+	int in_index;
+	int out_index;
+	int state_num;
+	int state_index[20][2];
+} wordHmmIDX;
+
+typedef struct
+{
+	wordHmmIDX word_list[N_WORD];
+	int tp_dim;
+	int tp_phones[140];
+	float* tp;
+} univHmmType;
+
+typedef struct
+{
+	char name[7];
+	float prob;
+} unigramElement;
+
+typedef struct
+{
+	unigramElement e[N_WORD];
+} unigramType;
+
+typedef struct
+{
+	int row;
+	int col;
+	float* m;
+} matrixType;
 
 hmmType phones[] = {
   { "f", // HMM
